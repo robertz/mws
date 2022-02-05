@@ -151,6 +151,7 @@ component {
         return props.signedURL;
     }
 
+    // return an RFC 3986 formatted string
     private string function encodeRFC3986(required string str) {
         return encodeForURL(arguments.str)
             .replace('%7E', '~', 'all')
@@ -158,6 +159,7 @@ component {
             .replace('*', '%2A', 'all');
     }
 
+    // chunk a large array into array of arrays of the given chunk size
     private array function chunk(required array input, required numeric chunkSize) {
         var out = [];
         var ceil = ceiling(input.len() / chunkSize);
@@ -179,10 +181,11 @@ component {
         return out;
     }
 
+    // quickly convert XML to CF
     private struct function parse(required string xmlNode) {
         // this works on lucee with the included jar
         var obj = createObject('java', 'org.json.XML', expandPath('org.json-20161124.jar'));
-        return deserializeJSON(obj.toJSONObject(xmlNode));
+        return deserializeJSON(obj.toJSONObject(xmlNode, true));
     }
 
 }
