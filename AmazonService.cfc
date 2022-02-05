@@ -56,7 +56,45 @@ component {
             'SellerId': variables.sellerId,
             'Version': variables.sellersVersion
         };
-        if (criteria.keyExists('nextToken')) params.append({'NextToken': criteria.nextToken});
+        var apiURL = generateSignedUrl(
+            verb = 'GET',
+            host = 'mws.amazonservices.com',
+            uri = '/Sellers/' & variables.sellersVersion,
+            params = params
+        );
+        cfhttp(url = apiURL, method = "GET");
+        if (isXML(cfhttp.fileContent)) data.append(parse(cfhttp.fileContent));
+        return data;
+    }
+
+    // https://docs.developer.amazonservices.com/en_US/sellers/Sellers_ListMarketplaceParticipationsByNextToken.html
+    public struct function listMarketplaceParticipationsByNextToken(struct criteria = {}) {
+        var data = {};
+        var params = {
+            'Action': 'ListMarketplaceParticipationsByNextToken',
+            'SellerId': variables.sellerId,
+            'Version': variables.sellersVersion,
+            'NextToken': arguments.criteria.keyExists('NextToken') ? arguments.criteria.nextToken : ''
+        };
+        var apiURL = generateSignedUrl(
+            verb = 'GET',
+            host = 'mws.amazonservices.com',
+            uri = '/Sellers/' & variables.sellersVersion,
+            params = params
+        );
+        cfhttp(url = apiURL, method = "GET");
+        if (isXML(cfhttp.fileContent)) data.append(parse(cfhttp.fileContent));
+        return data;
+    }
+
+    // https://docs.developer.amazonservices.com/en_US/sellers/Sellers_GetServiceStatus.html
+    public struct function getServiceStatus(struct criteria = {}) {
+        var data = {};
+        var params = {
+            'Action': 'GetServiceStatus', 
+            'SellerId': variables.sellerId, 
+            'Version': variables.sellersVersion
+        };
         var apiURL = generateSignedUrl(
             verb = 'GET',
             host = 'mws.amazonservices.com',
