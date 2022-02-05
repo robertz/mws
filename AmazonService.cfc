@@ -10,7 +10,7 @@ component {
         variables['sellerId'] = arguments.sellerId;
 
         // array of active marketplaces
-        variables['marketplaces'] = ['ATVPDKIKX0DER'];
+        variables['marketplaces'] = ['ATVPDKIKX0DER', 'A2EUQ1WTGCTBG2'];
         variables['mkpCount'] = variables.marketplaces.len();
 
         // versions
@@ -21,17 +21,47 @@ component {
     }
 
     // Feeds
+    // https://docs.developer.amazonservices.com/en_US/feeds/Feeds_GetFeedSubmissionList.html
+    public struct function getFeedSubmissionList(struct criteria = {}) {
+        var data = {};
+        var statuses = arguments.criteria.keyExists('statuses') && isArray(arguments.criteria.statuses) ? arguments.criteria.statuses : [
+            '_DONE_'
+        ];
+        var params = {
+            'Action': 'GetFeedSubmissionList',
+            'SellerId': variables.sellerId,
+            'Version': variables.feedsVersion,
+            'MaxCount': arguments.criteria.keyExists('MaxCount') ? arguments.criteria.maxCount : 100
+        };
+        // assign marketplace ids
+        for (var i = 1; i <= variables.mkpCount; i++) {
+            params.append({'MarketplaceId.Id.' & i: variables.marketplaces[i]});
+        }
+        // assingn statuses
+        for (var i = 1; i <= statuses.len(); i++) {
+            params.append({'FeedProcessingStatusList.Id.' & i: statuses[i]});
+        }
+        var apiURL = generateSignedUrl(
+            verb = 'GET',
+            host = 'mws.amazonservices.com',
+            uri = '/Feeds/' & variables.feedsVersion,
+            params = params
+        );
+        cfhttp(url = apiURL, method = "GET");
+        if (isXML(cfhttp.fileContent)) data.append(parse(cfhttp.fileContent));
+        return data;
+    }
 
     // https://docs.developer.amazonservices.com/en_US/feeds/Feeds_GetFeedSubmissionResult.html
-    public struct function getFeedSubmissionResultById(required struct criteria) {
+    public struct function getFeedSubmissionResult(struct criteria = {}) {
         var data = {};
         var params = {
             'Action': 'GetFeedSubmissionResult',
-            'FeedSubmissionId': criteria.feedSubmissionId,
+            'FeedSubmissionId': arguments.criteria.feedSubmissionId,
             'SellerId': variables.sellerId,
             'Version': variables.feedsVersion
         };
-        // dynamically assign marketplace ids
+        // assign marketplace ids
         for (var i = 1; i <= variables.mkpCount; i++) {
             params.append({'MarketplaceId.Id.' & i: variables.marketplaces[i]});
         }
@@ -47,7 +77,6 @@ component {
     }
 
     // Sellers
-
     // https://docs.developer.amazonservices.com/en_US/sellers/Sellers_ListMarketplaceParticipations.html
     public struct function listMarketplaceParticipations(struct criteria = {}) {
         var data = {};
@@ -90,11 +119,7 @@ component {
     // https://docs.developer.amazonservices.com/en_US/sellers/Sellers_GetServiceStatus.html
     public struct function getServiceStatus(struct criteria = {}) {
         var data = {};
-        var params = {
-            'Action': 'GetServiceStatus', 
-            'SellerId': variables.sellerId, 
-            'Version': variables.sellersVersion
-        };
+        var params = {'Action': 'GetServiceStatus', 'SellerId': variables.sellerId, 'Version': variables.sellersVersion};
         var apiURL = generateSignedUrl(
             verb = 'GET',
             host = 'mws.amazonservices.com',
@@ -107,7 +132,6 @@ component {
     }
 
     // Private methods
-
     // generate an Amazon V2 signature
     private string function generateSignedUrl(
         string verb = 'GET',
@@ -126,7 +150,7 @@ component {
             'SignatureVersion': 2,
             'SignatureMethod': 'HmacSHA256'
         };
-        urlParams.append(params);
+        urlParams.append(arguments.params);
         for (var i in urlParams) {
             props.query.append(i & '=' & encodeRFC3986(urlParams[i]));
         }
@@ -181,7 +205,7 @@ component {
         return out;
     }
 
-    // quickly convert XML to CF
+    // quickly convert XML to Struct
     private struct function parse(required string xmlNode) {
         // this works on lucee with the included jar
         var obj = createObject('java', 'org.json.XML', expandPath('org.json-20161124.jar'));
