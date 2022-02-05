@@ -1,10 +1,71 @@
 component {
 
+    // AmazonService
+    // CF service for working with Amazon MWS
+    // Robert Zehnder
+
     function init(required string awsAccessKeyId, required string secretKey, required string sellerId) {
         variables['awsAccessKeyId'] = arguments.awsAccessKeyId;
         variables['secretKey'] = arguments.secretKey;
-        variables['sellerId'] = arguments.sellerId
+        variables['sellerId'] = arguments.sellerId;
+
+        // array of active marketplaces
+        variables['marketplaces'] = ['ATVPDKIKX0DER'];
+        variables['mkpCount'] = variables.marketplaces.len();
+
+        // versions
+        variables['feedsVersion'] = '2009-01-01';
+        variables['sellersVersion'] = '2011-07-01';
+
         return this;
+    }
+
+    // Feeds
+
+    // https://docs.developer.amazonservices.com/en_US/feeds/Feeds_GetFeedSubmissionResult.html
+    public struct function getFeedSubmissionResultById(required struct criteria) {
+        var data = {};
+        var params = {
+            'Action': 'GetFeedSubmissionResult',
+            'FeedSubmissionId': criteria.feedSubmissionId,
+            'SellerId': variables.sellerId,
+            'Version': variables.feedsVersion
+        };
+        // dynamically assign marketplace ids
+        for (var i = 1; i <= variables.mkpCount; i++) {
+            params.append({'MarketplaceId.Id.' & i: variables.marketplaces[i]});
+        }
+        var apiURL = generateSignedUrl(
+            verb = 'GET',
+            host = 'mws.amazonservices.com',
+            uri = '/Feeds/' & variables.feedsVersion,
+            params = params
+        );
+        cfhttp(url = apiURL, method = "GET");
+        if (isXML(cfhttp.fileContent)) data.append(parse(cfhttp.fileContent));
+        return data;
+    }
+
+    // Sellers
+
+    // https://docs.developer.amazonservices.com/en_US/sellers/Sellers_ListMarketplaceParticipations.html
+    public struct function listMarketplaceParticipations(struct criteria = {}) {
+        var data = {};
+        var params = {
+            'Action': 'ListMarketplaceParticipations',
+            'SellerId': variables.sellerId,
+            'Version': variables.sellersVersion
+        };
+        if (criteria.keyExists('nextToken')) params.append({'NextToken': criteria.nextToken});
+        var apiURL = generateSignedUrl(
+            verb = 'GET',
+            host = 'mws.amazonservices.com',
+            uri = '/Sellers/' & variables.sellersVersion,
+            params = params
+        );
+        cfhttp(url = apiURL, method = "GET");
+        if (isXML(cfhttp.fileContent)) data.append(parse(cfhttp.fileContent));
+        return data;
     }
 
     // Private methods
@@ -27,7 +88,7 @@ component {
             'SignatureVersion': 2,
             'SignatureMethod': 'HmacSHA256'
         };
-        urlParmas.append(params);
+        urlParams.append(params);
         for (var i in urlParams) {
             props.query.append(i & '=' & encodeRFC3986(urlParams[i]));
         }
@@ -80,7 +141,7 @@ component {
         return out;
     }
 
-    function parse(required string xmlNode) {
+    private struct function parse(required string xmlNode) {
         // this works on lucee with the included jar
         var obj = createObject('java', 'org.json.XML', expandPath('org.json-20161124.jar'));
         return deserializeJSON(obj.toJSONObject(xmlNode));
